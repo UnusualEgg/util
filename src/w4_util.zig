@@ -77,9 +77,25 @@ pub fn tracef(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn text_centered(text: []const u8, y: i32) void {
-    const width = text.len * 8;
-    const x: i32 = @as(i32, @intCast((w4.SCREEN_SIZE - width) / 2));
-    w4.text(text, x, y);
+    const width: u32 = @as(u32, @truncate(text.len)) * 8;
+    const line_len: usize = (w4.SCREEN_SIZE / 8) - 1;
+    if (text.len > line_len) {
+        const x = 0;
+        var used: usize = 0;
+        var line: i32 = 0;
+        while (used < text.len) {
+            const unused = text.len - used;
+            const curr_len = if (unused < line_len) unused else line_len;
+            const x_i32: i32 = @intCast(x);
+            // tracef("text \"{s}\" {},{}", .{ text[used..(used + curr_len)], x, y + line });
+            w4.text(text[used..(used + curr_len)], x_i32, y + line);
+            used += curr_len;
+            line += 8;
+        }
+    } else {
+        const x: u32 = (w4.SCREEN_SIZE - width) / 2;
+        w4.text(text, @intCast(x), y);
+    }
 }
 pub fn text_centeredf(comptime fmt: []const u8, args: anytype, y: i32) void {
     var buf: ?[]u8 = null;
