@@ -93,7 +93,8 @@ fn find_longest(text: []const u8, max: usize) []const u8 {
     return text[0..last_ws];
 }
 
-pub fn text_centered(text: []const u8, y: i32) void {
+//returns line after last aka next line
+pub fn text_centered(text: []const u8, y: i32) i32 {
     const width: u32 = @as(u32, @truncate(text.len)) * 8;
     const line_len: usize = (w4.SCREEN_SIZE / 8) - 1;
     if (text.len > line_len) {
@@ -110,18 +111,21 @@ pub fn text_centered(text: []const u8, y: i32) void {
             used += curr_len;
             line += 8;
         }
+        return y + line;
     } else {
         const x: u32 = (w4.SCREEN_SIZE - width) / 2;
         w4.text(text, @intCast(x), y);
+        return y + 8;
     }
 }
-pub fn text_centeredf(comptime fmt: []const u8, args: anytype, y: i32) void {
+//returns line after last aka next line
+pub fn text_centeredf(comptime fmt: []const u8, args: anytype, y: i32) i32 {
     var buf: ?[]u8 = null;
     const out = format(fmt, args, &buf);
     defer if (buf) |ptr| {
         w4_alloc.a.allocator().free(ptr);
     };
-    text_centered(out, y);
+    return text_centered(out, y);
 }
 //mine
 pub fn get_enum_len(opt: ?type) usize {
