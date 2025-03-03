@@ -84,11 +84,21 @@ pub fn text_centered(text: []const u8, y: i32) void {
         var used: usize = 0;
         var line: i32 = 0;
         while (used < text.len) {
+            while (text[used] == '\n')
+                used += 1;
             const unused = text.len - used;
-            const curr_len = if (unused < line_len) unused else line_len;
+            var curr_len = if (unused < line_len) unused else line_len;
+            var curr = text[used..(used + curr_len)];
+            const newline = std.mem.indexOf(u8, curr, "\n");
+            if (newline) |newline_i| {
+                curr_len = newline_i;
+                curr = text[used..(used + curr_len)];
+                //printf("{}..{} {}", .{ used, used + curr_len, newline_i + used }, 0, (8 * 6) + line);
+            } else {
+                //printf("{}..{}", .{ used, used + curr_len }, 0, (8 * 6) + line);
+            }
             const x_i32: i32 = @intCast(x);
-            // tracef("text \"{s}\" {},{}", .{ text[used..(used + curr_len)], x, y + line });
-            w4.text(text[used..(used + curr_len)], x_i32, y + line);
+            w4.text(curr, x_i32, y + line);
             used += curr_len;
             line += 8;
         }
