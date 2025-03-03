@@ -75,6 +75,23 @@ pub fn tracef(comptime fmt: []const u8, args: anytype) void {
     };
     w4.trace(out);
 }
+fn find_longest(text: []const u8, max: usize) []const u8 {
+    if (text.len <= max) return text;
+    var last_ws = max;
+    for (0..text.len) |i| {
+        if (i > max) {
+            break;
+        }
+        if (text[i] == '\n') {
+            last_ws = i;
+            break;
+        }
+        if (std.ascii.isWhitespace(text[i])) {
+            last_ws = i;
+        }
+    }
+    return text[0..last_ws];
+}
 
 pub fn text_centered(text: []const u8, y: i32) void {
     const width: u32 = @as(u32, @truncate(text.len)) * 8;
@@ -84,19 +101,10 @@ pub fn text_centered(text: []const u8, y: i32) void {
         var used: usize = 0;
         var line: i32 = 0;
         while (used < text.len) {
-            while (text[used] == '\n')
+            while (std.ascii.isWhitespace(text[used]))
                 used += 1;
-            const unused = text.len - used;
-            var curr_len = if (unused < line_len) unused else line_len;
-            var curr = text[used..(used + curr_len)];
-            const newline = std.mem.indexOf(u8, curr, "\n");
-            if (newline) |newline_i| {
-                curr_len = newline_i;
-                curr = text[used..(used + curr_len)];
-                //printf("{}..{} {}", .{ used, used + curr_len, newline_i + used }, 0, (8 * 6) + line);
-            } else {
-                //printf("{}..{}", .{ used, used + curr_len }, 0, (8 * 6) + line);
-            }
+            const curr = find_longest(text[used..], line_len);
+            const curr_len = curr.len;
             const x_i32: i32 = @intCast(x);
             w4.text(curr, x_i32, y + line);
             used += curr_len;
