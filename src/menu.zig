@@ -34,12 +34,12 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         }
 
         pub const menu_len = get_enum_len(Menu);
-        const lookup: [menu_len]?type = blk: {
-            var lookup_enum: [menu_len]?type = .{null} ** menu_len;
+        const lookup: std.EnumArray(Menu, ?std.builtin.Type.Enum) = blk: {
+            var lookup_enum: std.EnumArray(Menu, ?std.builtin.Type.Enum) = .{null} ** menu_len;
             //only have to write associated enums here! :D
             for (@typeInfo(Menu).@"enum".fields) |field| {
                 if (@hasField(@TypeOf(button_types), field.name)) {
-                    lookup_enum[field.value] = @field(button_types, field.name);
+                    lookup_enum.set(field.value, @field(button_types, field.name));
                 }
             }
             break :blk lookup_enum;
