@@ -21,4 +21,10 @@ pub fn build(b: *std.Build) void {
             },
         },
     });
+
+    _ = b.addModule("w4_alloc", .{
+        .root_source_file = b.path("src/w4_alloc.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 }
