@@ -51,7 +51,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                     return menu;
                 }
             } else {
-                @compileError("invalid butons " ++ @tagName(buttons));
+                @compileError("invalid buttons " ++ @tagName(buttons));
             }
         }
         pub const Button = struct { name: []const u8, value: ENUM_TYPE };
