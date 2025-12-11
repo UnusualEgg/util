@@ -46,7 +46,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         };
         pub fn get_menu(buttons: type) ?Menu {
             for (@typeInfo(Menu).@"enum".fields) |field| {
-                const menu: Menu = @enumFromInt(field.value);
+                const menu: Menu = @field(Menu, field.name);
                 if (get_buttons_enum(menu) == buttons) {
                     return menu;
                 }
@@ -60,7 +60,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             return BUTTONS[@intFromEnum(menu)];
         }
         inline fn get_buttons_enum(menu: Menu) ?type {
-            return lookup[@intFromEnum(menu)];
+            return lookup.get(@intFromEnum(menu));
         }
         pub fn get_menu_len(menu: Menu) usize {
             return menu_lens[@intFromEnum(menu)];
@@ -80,22 +80,24 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         //3. have list of button slices
 
         //first calc lengths
-        const total_fields = blk: {
+        const total_buttons = blk: {
             var total_fields_n = 0;
-            for (lookup) |t| {
-                if (t) |ty| {
+            var iter = lookup.iterator();
+            while (iter.next()) |t| {
+                if (t.value) |ty| {
                     const fields = @typeInfo(ty).@"enum".fields;
                     total_fields_n += fields.len;
                 }
             }
             break :blk total_fields_n;
         };
-        const total_name_len = blk: {
+        const total_button_names_len = blk: {
             var total_name_len_n = 0;
-            for (lookup) |t| {
-                if (t) |ty| {
-                    const fields = @typeInfo(ty).@"enum".fields;
-                    for (fields) |field| {
+            var iter = lookup.iterator();
+            while (iter.next()) |t| {
+                if (t.value) |ty| {
+                    const field_names = std.meta.fieldNames(ty);
+                    for (field_names) |field| {
                         total_name_len_n += field.name.len;
                     }
                 }
@@ -103,45 +105,36 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             break :blk total_name_len_n;
         };
         //then make bufs
-        var names_buf: [total_name_len]u8 = blk: {
-            var names_buf_local: [total_name_len]u8 = undefined;
-            var buf_i = 0;
-            var button_i = 0;
-            var menu_i = 0;
-            for (lookup) |t| {
-                if (t) |ty| {
-                    const fields = @typeInfo(ty).@"enum".fields;
-                    for (fields) |field| {
-                        const field_len = field.name.len;
-                        const str: []u8 = names_buf_local[buf_i..(buf_i + field_len)];
-                        //replace
-                        for (field.name, 0..) |char, i| {
-                            if (char == '_') {
-                                str[i] = ' ';
-                            } else {
-                                str[i] = char;
-                            }
-                        }
+        const button_names_buf: [total_button_names_len]u8 = blk: {
+            var names_buf_local: [total_button_names_len]u8 = undefined;
 
-                        buf_i += field_len;
-                        button_i += 1;
+            var buf_i = 0;
+            var iter = lookup.iterator();
+            while (iter.next()) |t| {
+                if (t.value) |ty| {
+                    const names = std.meta.fieldNames(ty);
+                    for (names) |name_sentinel| {
+                        const name_only: []const u8 = name_sentinel[0..name_sentinel.len];
+                        const str = names_buf_local[buf_i..][0..names.len];
+                        @memcpy(str, name_only);
+                        std.mem.replaceScalar(u8, str, '_', ' ');
+                        buf_i += str.len;
                     }
                 }
-                menu_i += 1;
             }
+
             break :blk names_buf_local;
         };
-        var buttons_buf: [total_fields]Button = blk: {
-            var buttons_buf_local: [total_fields]Button = undefined;
+        const buttons_buf: [total_buttons]Button = blk: {
+            var buttons_buf_local: [total_buttons]Button = undefined;
             var buf_i = 0;
             var button_i = 0;
-            var menu_i = 0;
             for (lookup) |t| {
                 if (t) |ty| {
                     const fields = @typeInfo(ty).@"enum".fields;
                     for (fields) |field| {
                         const field_len = field.name.len;
-                        const str: []u8 = names_buf[buf_i..(buf_i + field_len)];
+                        const str: []u8 = button_names_buf[buf_i..][0..field_len];
                         //then make buttons with refs to those
                         buttons_buf_local[button_i] = Button{ .name = str, .value = field.value };
 
@@ -149,7 +142,6 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                         button_i += 1;
                     }
                 }
-                menu_i += 1;
             }
             break :blk buttons_buf_local;
         };
