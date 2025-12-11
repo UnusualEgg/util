@@ -1,5 +1,6 @@
-const util = @import("w4_util.zig");
+const util = @import("w4_util");
 const get_enum_len = util.get_enum_len;
+const std = @import("std");
 //buttons has fields with name of their type and their def
 pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) type {
     const menus_type: type = struct {
