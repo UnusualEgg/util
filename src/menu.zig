@@ -154,9 +154,8 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             for (lookup) |t| {
                 if (t) |ty| {
                     const fields = @typeInfo(ty).@"enum".fields;
-                    const buttons_begin = button_i;
+                    buttons[menu_i] = buttons_buf[button_i..][0..fields.len];
                     button_i += fields.len;
-                    buttons[menu_i] = buttons_buf[buttons_begin..button_i];
                 } else {
                     buttons[menu_i] = null;
                 }
