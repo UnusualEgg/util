@@ -44,6 +44,7 @@ pub fn is_released(gamepad: u8, button: u8) bool {
 
 const w4_alloc = @import("w4_alloc.zig");
 //printing
+/// `input_buf` is an out param that get set to an alloated slice (or null on failure) that the caller needs to free with `w4_alloc`
 pub fn format(comptime fmt: []const u8, args: anytype, input_buf: *?[]u8) []const u8 {
     input_buf.* = null;
     //var buf2: [buf_size]u8 = .{0} ** buf_size;
@@ -95,8 +96,8 @@ fn find_longest(text: []const u8, max: usize) []const u8 {
 
 //returns line after last aka next line
 pub fn text_centered(text: []const u8, y: i32) i32 {
-    const width: u32 = @as(u32, @truncate(text.len)) * 8;
-    const line_len: usize = (w4.SCREEN_SIZE / 8) - 1;
+    const width: u32 = @as(u32, @truncate(text.len)) * w4.FONT_SIZE;
+    const line_len: usize = (w4.SCREEN_SIZE / w4.FONT_SIZE) - 1;
     if (text.len > line_len) {
         const x = 0;
         var used: usize = 0;
@@ -109,13 +110,13 @@ pub fn text_centered(text: []const u8, y: i32) i32 {
             const x_i32: i32 = @intCast(x);
             w4.text(curr, x_i32, y + line);
             used += curr_len;
-            line += 8;
+            line += w4.FONT_SIZE;
         }
         return y + line;
     } else {
         const x: u32 = (w4.SCREEN_SIZE - width) / 2;
         w4.text(text, @intCast(x), y);
-        return y + 8;
+        return y + w4.FONT_SIZE;
     }
 }
 //returns line after last aka next line
