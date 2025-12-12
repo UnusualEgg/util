@@ -84,7 +84,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             //only have to write associated enums here! :D
             for (@typeInfo(Menu).@"enum".fields) |field| {
                 if (@hasField(@TypeOf(button_types), field.name)) {
-                    lookup_enum.set(field.value, @field(button_types, field.name));
+                    lookup_enum.set(@enumFromInt(field.value), @typeInfo(@field(button_types, field.name)).@"enum");
                 }
             }
             break :blk lookup_enum;
@@ -107,17 +107,24 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         pub fn get_current_buttons(self: *const Self) ?[]const Button {
             return BUTTONS.get(self.current_menu);
         }
+        fn get_type_from_enum(@"enum": std.builtin.Type.Enum) type {
+            return @Type(std.builtin.Type{ .@"enum" = @"enum" });
+        }
         inline fn get_buttons_enum(menu: Menu) ?type {
-            return button_enum_lookup.get(@intFromEnum(menu));
+            if (button_enum_lookup.get(menu)) |@"enum"| {
+                return get_type_from_enum(@"enum");
+            } else {
+                return null;
+            }
         }
         pub fn get_menu_len(menu: Menu) usize {
-            return menu_lens[@intFromEnum(menu)];
+            return menu_lens.get(menu);
         }
 
         const menu_lens: std.EnumArray(Menu, usize) = blk: {
             var lens: std.EnumArray(Menu, usize) = .initFill(0);
             for (@typeInfo(Menu).@"enum".fields) |field| {
-                lens.set(field.value, get_enum_len(get_buttons_enum(@field(Menu, field.name))));
+                lens.set(@enumFromInt(field.value), get_enum_len(get_buttons_enum(@field(Menu, field.name))));
             }
             break :blk lens;
         };
@@ -125,14 +132,15 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         //BUTTONS: lookup list of buttons associated with a menu
         //this is done by storing button names in a buffer contiguously
         //then making each element of BUTTONS be a slice that references part of that buffer
-        const BUTTONS: std.EnumArray(Menu, ?[]Button) = blk: {
+        const BUTTONS: std.EnumArray(Menu, ?[]const Button) = blk: {
+            //make a local var copy for iterator (for some reason there's no const iterator)
+            var button_enum_lookup_local = button_enum_lookup;
             const total_buttons = total_buttons: {
                 var total_fields_n = 0;
-                var iter = button_enum_lookup.iterator();
+                var iter = button_enum_lookup_local.iterator();
                 while (iter.next()) |t| {
-                    if (t.value) |ty| {
-                        const fields = @typeInfo(ty).@"enum".fields;
-                        total_fields_n += fields.len;
+                    if (t.value.*) |ty| {
+                        total_fields_n += ty.fields.len;
                     }
                 }
                 break :total_buttons total_fields_n;
@@ -140,35 +148,52 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             const name_slices = names: {
                 const total_button_names_len = names_len: {
                     var total_name_len_n = 0;
-                    var iter = button_enum_lookup.iterator();
+                    var iter = button_enum_lookup_local.iterator();
                     while (iter.next()) |t| {
-                        if (t.value) |ty| {
-                            const field_names = std.meta.fieldNames(ty);
-                            for (field_names) |field| {
-                                total_name_len_n += field.name.len;
+                        if (t.value.*) |ty| {
+                            const field_names = std.meta.fieldNames(get_type_from_enum(ty));
+                            for (field_names) |field_name| {
+                                total_name_len_n += field_name.len;
                             }
                         }
                     }
                     break :names_len total_name_len_n;
                 };
 
-                const S = struct {
-                    var names_buf: [total_button_names_len]u8 = undefined;
-                };
-                var name_slices_local: [total_buttons][]u8 = undefined;
+                var names_buf: [total_button_names_len]u8 = undefined;
 
                 var buf_i = 0;
-                var button_i = 0;
-                var iter = button_enum_lookup.iterator();
+                var iter = button_enum_lookup_local.iterator();
                 while (iter.next()) |t| {
-                    if (t.value) |ty| {
-                        const names = std.meta.fieldNames(ty);
+                    if (t.value.*) |ty| {
+                        const names = std.meta.fieldNames(get_type_from_enum(ty));
                         for (names) |name_sentinel| {
                             const name_only: []const u8 = name_sentinel[0..name_sentinel.len];
-                            const str: []u8 =
-                                S.names_buf[buf_i..][0..name_sentinel.len];
+                            const str: *[name_only.len]u8 =
+                                names_buf[buf_i..(buf_i + name_only.len)];
                             @memcpy(str, name_only);
                             std.mem.replaceScalar(u8, str, '_', ' ');
+
+                            buf_i += str.len;
+                        }
+                    }
+                }
+                var name_slices_local: [total_buttons][]const u8 = undefined;
+                const names_buf_const = names_buf;
+                //first move array to static memory, *then* make references to it
+                const S = struct {
+                    const s_names_buf = names_buf_const;
+                };
+                buf_i = 0;
+                var button_i = 0;
+                iter = button_enum_lookup_local.iterator();
+                while (iter.next()) |t| {
+                    if (t.value.*) |ty| {
+                        const names = std.meta.fieldNames(get_type_from_enum(ty));
+                        for (names) |name_sentinel| {
+                            const name_only: []const u8 = name_sentinel[0..name_sentinel.len];
+                            const str: *const [name_only.len]u8 =
+                                S.s_names_buf[buf_i..(buf_i + name_only.len)];
 
                             name_slices_local[button_i] = str;
 
@@ -180,29 +205,43 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                 break :names name_slices_local;
             };
 
-            var buttons: std.EnumArray(Menu, ?[]Button) = .initFill(null);
-            var buttons_iter = buttons.iterator();
+            var buttons_buf: [total_buttons]Button = undefined;
+            var button_i = 0;
+            var fields_iter = button_enum_lookup_local.iterator();
+            while (fields_iter.next()) |t| {
+                // const entry = buttons_iter.next().?;
+                if (t.value.*) |buttons_enum| {
+                    const fields = buttons_enum.fields;
+
+                    // const start = button_i;
+                    for (fields) |field| {
+                        const str: []const u8 = name_slices[button_i];
+                        //then make buttons with refs to those
+                        buttons_buf[button_i] = Button{ .name = str, .value = field.value };
+                        button_i += 1;
+                    }
+                    // entry.value.* = buttons_buf[start..button_i];
+                }
+            }
             //store the actual values in static memory
             //result of BUTTONS is a slice that references this
             //each menu may have an array of buttons which are stored here
+            const buttons_buf_const = buttons_buf;
             const S = struct {
-                var buttons_buf: [total_buttons]Button = undefined;
+                const s_buttons_buf = buttons_buf_const;
             };
-            var button_i = 0;
-            var fields_iter = button_enum_lookup.iterator();
+            var buttons: std.EnumArray(Menu, ?[]const Button) = .initFill(null);
+            var buttons_iter = buttons.iterator();
+            button_i = 0;
+            fields_iter = button_enum_lookup_local.iterator();
             while (fields_iter.next()) |t| {
                 const entry = buttons_iter.next().?;
                 if (t.value.*) |buttons_enum| {
                     const fields = buttons_enum.fields;
 
                     const start = button_i;
-                    for (fields) |field| {
-                        const str: []u8 = name_slices[button_i];
-                        //then make buttons with refs to those
-                        S.buttons_buf[button_i] = Button{ .name = str, .value = field.value };
-                        button_i += 1;
-                    }
-                    entry.value.* = S.buttons_buf[start..button_i];
+                    button_i += fields.len;
+                    entry.value.* = S.s_buttons_buf[start..button_i];
                 }
             }
             break :blk buttons;
