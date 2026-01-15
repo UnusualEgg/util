@@ -1,5 +1,5 @@
 const util = @import("w4_util");
-const get_enum_len = util.get_enum_len;
+const get_enum_len = util.getEnumLen;
 const std = @import("std");
 
 /// Menu helper
@@ -47,14 +47,14 @@ const std = @import("std");
 ///     Buttons,
 /// );
 /// ```
-pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) type {
-    const menus_type: type = struct {
+pub fn menus(ButtonsTagType: type, MenuType: type, button_types_struct: anytype) type {
+    const MenusType: type = struct {
         current_menu: Menu,
         cursor: ENUM_TYPE,
 
         const Self = @This();
-        const ENUM_TYPE = enum_type;
-        const Menu = menu_type;
+        const ENUM_TYPE = ButtonsTagType;
+        const Menu = MenuType;
         const button_types = button_types_struct;
 
         /// go to `menu` and reset `cursor` to `0`
@@ -64,13 +64,13 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         }
         /// this assumes the current buttons enum is in order and skips no numbers
         pub fn next(self: *Self) void {
-            const len = get_menu_len(self.current_menu);
+            const len = getMenuLen(self.current_menu);
             self.cursor +|= 1;
             self.cursor %= @truncate(len);
         }
         /// this assumes the current buttons enum is in order and skips no numbers and starts at 0
         pub fn prev(self: *Self) void {
-            const len = get_menu_len(self.current_menu);
+            const len = getMenuLen(self.current_menu);
             if (self.cursor == 0) {
                 self.cursor = @truncate(len -| 1);
             } else {
@@ -89,10 +89,10 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             }
             break :blk lookup_enum;
         };
-        pub fn get_menu(buttons: type) ?Menu {
+        pub fn getMenu(buttons: type) ?Menu {
             for (@typeInfo(Menu).@"enum".fields) |field| {
                 const menu: Menu = @field(Menu, field.name);
-                if (get_buttons_enum(menu) == buttons) {
+                if (getButtonsEnum(menu) == buttons) {
                     return menu;
                 }
             } else {
@@ -101,30 +101,30 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
         }
         pub const Button = struct { name: []const u8, value: ENUM_TYPE };
 
-        pub fn get_buttons(menu: Menu) ?[]const Button {
+        pub fn getButtons(menu: Menu) ?[]const Button {
             return BUTTONS.get(menu);
         }
-        pub fn get_current_buttons(self: *const Self) ?[]const Button {
+        pub fn getCurrentButtons(self: *const Self) ?[]const Button {
             return BUTTONS.get(self.current_menu);
         }
-        fn get_type_from_enum(@"enum": std.builtin.Type.Enum) type {
+        fn getTypeFromEnum(@"enum": std.builtin.Type.Enum) type {
             return @Type(std.builtin.Type{ .@"enum" = @"enum" });
         }
-        inline fn get_buttons_enum(menu: Menu) ?type {
+        inline fn getButtonsEnum(menu: Menu) ?type {
             if (button_enum_lookup.get(menu)) |@"enum"| {
-                return get_type_from_enum(@"enum");
+                return getTypeFromEnum(@"enum");
             } else {
                 return null;
             }
         }
-        pub fn get_menu_len(menu: Menu) usize {
+        pub fn getMenuLen(menu: Menu) usize {
             return menu_lens.get(menu);
         }
 
         const menu_lens: std.EnumArray(Menu, usize) = blk: {
             var lens: std.EnumArray(Menu, usize) = .initFill(0);
             for (@typeInfo(Menu).@"enum".fields) |field| {
-                lens.set(@enumFromInt(field.value), get_enum_len(get_buttons_enum(@field(Menu, field.name))));
+                lens.set(@enumFromInt(field.value), get_enum_len(getButtonsEnum(@field(Menu, field.name))));
             }
             break :blk lens;
         };
@@ -151,7 +151,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                     var iter = button_enum_lookup_local.iterator();
                     while (iter.next()) |t| {
                         if (t.value.*) |ty| {
-                            const field_names = std.meta.fieldNames(get_type_from_enum(ty));
+                            const field_names = std.meta.fieldNames(getTypeFromEnum(ty));
                             for (field_names) |field_name| {
                                 total_name_len_n += field_name.len;
                             }
@@ -166,7 +166,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                 var iter = button_enum_lookup_local.iterator();
                 while (iter.next()) |t| {
                     if (t.value.*) |ty| {
-                        const names = std.meta.fieldNames(get_type_from_enum(ty));
+                        const names = std.meta.fieldNames(getTypeFromEnum(ty));
                         for (names) |name_sentinel| {
                             const name_only: []const u8 = name_sentinel[0..name_sentinel.len];
                             const str: *[name_only.len]u8 =
@@ -189,7 +189,7 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
                 iter = button_enum_lookup_local.iterator();
                 while (iter.next()) |t| {
                     if (t.value.*) |ty| {
-                        const names = std.meta.fieldNames(get_type_from_enum(ty));
+                        const names = std.meta.fieldNames(getTypeFromEnum(ty));
                         for (names) |name_sentinel| {
                             const name_only: []const u8 = name_sentinel[0..name_sentinel.len];
                             const str: *const [name_only.len]u8 =
@@ -247,5 +247,5 @@ pub fn menus(enum_type: type, menu_type: type, button_types_struct: anytype) typ
             break :blk buttons;
         };
     };
-    return menus_type;
+    return MenusType;
 }

@@ -3,39 +3,39 @@ const std = @import("std");
 
 //colors
 const draw_colors_array: *[4]u4 = @ptrCast(w4.DRAW_COLORS);
-pub fn set_drawc(index: u2, color_index: u3) void {
+pub fn setDrawColor(index: u2, color_index: u3) void {
     const shift: u4 = @as(u4, index) * 4;
     const mask = ~(@as(u16, 0b1111) << shift);
     const color = @as(u16, color_index) << shift;
     w4.DRAW_COLORS.* = color | (w4.DRAW_COLORS.* & mask);
 }
-pub fn set_drawc1(color: u3) void {
-    set_drawc(0, color);
+pub fn setDrawColor1(color: u3) void {
+    setDrawColor(0, color);
 }
-pub fn set_drawc2(color: u3) void {
-    set_drawc(1, color);
+pub fn setDrawColor2(color: u3) void {
+    setDrawColor(1, color);
 }
-pub fn set_drawc3(color: u3) void {
-    set_drawc(2, color);
+pub fn setDrawColor3(color: u3) void {
+    setDrawColor(2, color);
 }
-pub fn set_drawc4(color: u3) void {
-    set_drawc(3, color);
+pub fn setDrawColor4(color: u3) void {
+    setDrawColor(3, color);
 }
 
 //gamepad
 var old_gamepad: [4]u8 = .{ 0, 0, 0, 0 };
-pub fn get_pressed(gamepad_index: u2) u8 {
+pub fn getPressed(gamepad_index: u2) u8 {
     const gamepad: u8 = @as(*u8, @ptrFromInt(@intFromPtr(w4.GAMEPAD1) + gamepad_index)).*;
     const pressed = (gamepad ^ 0) & (~old_gamepad[gamepad_index]);
     old_gamepad[gamepad_index] = gamepad;
     return pressed;
 }
-pub fn is_pressed(gamepad: u8, button: u8) bool {
+pub fn isPressed(gamepad: u8, button: u8) bool {
     return gamepad & button != 0;
 }
-pub fn is_released(gamepad: u8, button: u8) bool {
+pub fn isReleased(gamepad: u8, button: u8) bool {
     var released = false;
-    if (is_pressed(old_gamepad, button) and !is_pressed(gamepad, button)) {
+    if (isPressed(old_gamepad, button) and !isPressed(gamepad, button)) {
         released = true;
     }
     old_gamepad = gamepad;
@@ -76,7 +76,7 @@ pub fn tracef(comptime fmt: []const u8, args: anytype) void {
     };
     w4.trace(out);
 }
-fn find_longest(text: []const u8, max: usize) []const u8 {
+fn findLongest(text: []const u8, max: usize) []const u8 {
     if (text.len <= max) return text;
     var last_ws = max;
     for (0..text.len) |i| {
@@ -95,7 +95,7 @@ fn find_longest(text: []const u8, max: usize) []const u8 {
 }
 
 //returns line after last aka next line
-pub fn text_centered(text: []const u8, y: i32) i32 {
+pub fn textCentered(text: []const u8, y: i32) i32 {
     const width: u32 = @as(u32, @truncate(text.len)) * w4.FONT_SIZE;
     const line_len: usize = (w4.SCREEN_SIZE / w4.FONT_SIZE) - 1;
     if (text.len > line_len) {
@@ -105,7 +105,7 @@ pub fn text_centered(text: []const u8, y: i32) i32 {
         while (used < text.len) {
             while (std.ascii.isWhitespace(text[used]))
                 used += 1;
-            const curr = find_longest(text[used..], line_len);
+            const curr = findLongest(text[used..], line_len);
             const curr_len = curr.len;
             const x_i32: i32 = @intCast(x);
             w4.text(curr, x_i32, y + line);
@@ -120,16 +120,16 @@ pub fn text_centered(text: []const u8, y: i32) i32 {
     }
 }
 //returns line after last aka next line
-pub fn text_centeredf(comptime fmt: []const u8, args: anytype, y: i32) i32 {
+pub fn textCenteredf(comptime fmt: []const u8, args: anytype, y: i32) i32 {
     var buf: ?[]u8 = null;
     const out = format(fmt, args, &buf);
     defer if (buf) |ptr| {
         w4_alloc.a.allocator().free(ptr);
     };
-    return text_centered(out, y);
+    return textCentered(out, y);
 }
 //mine
-pub fn get_enum_len(opt: ?type) usize {
+pub fn getEnumLen(opt: ?type) usize {
     if (opt) |t| {
         switch (@typeInfo(t)) {
             .@"enum" => |e| {
